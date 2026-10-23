@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------
+// الفروع (Branches)
+// ----------------------------------------------------
+model Branch {
+  id           String        @id @default(cuid())
+  name         String        // اسم الفرع (مثلاً: فرع المهندسين، فرع مدينة نصر، فرع التجمع)
+  city         String        // المدينة / المحافظة
+  address      String        // العنوان التفصيلي
+  phone        String        // رقم هاتف الفرع
+  workingHours String        // ساعات العمل (مثلاً: 10:00 ص - 10:00 م)
+  mapUrl       String?       // رابط موقع الفرع على خرائط جوجل (Google Maps Link)
+  status       String        @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  staff        User[]
+  doctors      Doctor[]
+  appointments Appointment[]
+  followUps    FollowUp[]
+}
+
+// ----------------------------------------------------
+// مستخدمو النظام (Users - Admin, Staff, Receptionist)
+// ----------------------------------------------------
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("RECEPTIONIST") // SUPER_ADMIN, BRANCH_ADMIN, DOCTOR, RECEPTIONIST
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------
+// الأطباء (Doctors)
+// ----------------------------------------------------
+model Doctor {
+  id             String          @id @default(cuid())
+  name           String
+  specialty      String          // التخصص (زراعة، تجميل، تقويم، جراحة، علاج جذور...)
+  phone          String?
+  email          String?
+  workingDays    String?         // أيام العمل
+  branchId       String
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  followUps      FollowUp[]
+}
+
+// ----------------------------------------------------
+// العملاء / المرضى (Patients)
+// بيانات العميل الكاملة مع أرقام التواصل والعنوان
+// ----------------------------------------------------
+model Patient {
+  id              String          @id @default(cuid())
+  fullName        String          // الاسم الكامل للعميل
+  phone           String          @unique // رقم الهاتف الأساسي (الواتساب)
+  secondaryPhone  String?         // رقم هاتف إضافي / رقم الطوارئ أو الأقارب
+  email           String?         // البريد الإلكتروني
+  password        String?         // كلمة المرور لتسجيل دخول المريض في حسابه
+  address         String?         // العنوان السكني / المنطقة
+  nationalId      String?         // الرقم القومي
+  birthDate       DateTime?       // تاريخ الميلاد
+  gender          String?         // MALE, FEMALE
+  chronicDiseases String?         // أمراض مزمنة (سكر، ضغط، سيولة...)
+  allergies       String?         // حساسية أدوية
+  notes           String?         // ملاحظات عامة
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  appointments    Appointment[]
+  medicalRecords  MedicalRecord[]
+  followUps       FollowUp[]
+}
+
+// ----------------------------------------------------
+// الخدمات (Services)
+// ----------------------------------------------------
+model Service {
+  id              String        @id @default(cuid())
+  name            String        // اسم الخدمة (هوليوود سمايل، حشو ليزر، زراعة فورية...)
+  description     String?
+  category        String?       // تجميل، علاجي، جراحي
+  price           Float
+  durationMinutes Int           @default(30)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  appointments    Appointment[]
+}
+
+// ----------------------------------------------------
+// الحجوزات والشكاوى والمقترحات (Appointments, Complaints & Suggestions)
+// ----------------------------------------------------
+model Appointment {
+  id                String         @id @default(cuid())
+  branchId          String
+  branch            Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  patientId         String
+  patient           Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId          String?
+  doctor            Doctor?        @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  serviceId         String?
+  service           Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  
+  appointmentDate   DateTime       // موعد وتاريخ الحجز
+  status            String         @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  
+  // تفاصيل ونوع الرسالة مع الحجز (شكوى أو اقتراح أو استفسار)
+  noteType          String         @default("COMPLAINT") // COMPLAINT (شكوى ألم/خدمة), SUGGESTION (اقتراح), INQUIRY (استفسار)
+  patientComplaint  String?        // تفاصيل شكوى العميل ووصف الألم أو المشكلة
+  patientSuggestion String?        // اقتراح العميل أو رغبته في تحسين خدمة معينة
+  painLocation      String?        // السن المتضرر أو الفك (علوي/سفلي)
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  medicalRecord     MedicalRecord?
+  followUps         FollowUp[]
+}
+
+// ----------------------------------------------------
+// السجل الطبي والجلسات (Medical Records)
+// ----------------------------------------------------
+model MedicalRecord {
+  id                 String      @id @default(cuid())
+  appointmentId      String      @unique
+  appointment        Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  patientId          String
+  patient            Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId           String
+  doctor             Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  
+  diagnosis          String      // التشخيص الطبي
+  treatmentPerformed String      // الإجراء الذي تم تنفيذه
+  dentalChart        String?     // تمثيل بيانات الأسنان المعالجة بصيغة JSON
+  xrays              String?     // روابط صور الأشعة
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+}
+
+// ----------------------------------------------------
+// نظام المتابعة والتذكير الدوري (Follow-up System)
+// ----------------------------------------------------
+model FollowUp {
+  id             String       @id @default(cuid())
+  patientId      String
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctorId       String?
+  doctor         Doctor?      @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  appointmentId  String?
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  
+  scheduledDate  DateTime     // موعد المتابعة القادمة
+  followUpType   String       // نوع المتابعة (فك غرز، تغيير ضماد، فحص دوري، جلسة تقويم...)
+  status         String       @default("SCHEDULED") // SCHEDULED, COMPLETED, MISSED, CANCELLED
+  notes          String?      // ملاحظات وتوصيات المتابعة
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
