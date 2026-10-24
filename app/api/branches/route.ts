@@ -1,30 +1,34 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { createRecordId, supabase } from "@/lib/supabase";
 import { getCurrentSession } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const branches = await db.branch.findMany({
-      where: { status: "ACTIVE" },
-      include: {
-        doctors: {
-          select: {
-            id: true,
-            name: true,
-            specialty: true,
-            workingDays: true,
+    const { data, error } = await supabase
+      .from("Branch")
+      .select("*, doctors:Doctor(id, name, specialty, workingDays)")
+      .eq("status", "ACTIVE")
+      .order("createdAt", { ascending: true });
+    if (error) throw error;
+    const branches = await Promise.all(
+      data.map(async (branch) => {
+        const [appointmentsResult, doctorsResult, followUpsResult] = await Promise.all([
+          supabase.from("Appointment").select("id", { count: "exact", head: true }).eq("branchId", branch.id),
+          supabase.from("Doctor").select("id", { count: "exact", head: true }).eq("branchId", branch.id),
+          supabase.from("FollowUp").select("id", { count: "exact", head: true }).eq("branchId", branch.id),
+        ]);
+        const countError = appointmentsResult.error ?? doctorsResult.error ?? followUpsResult.error;
+        if (countError) throw countError;
+        return {
+          ...branch,
+          _count: {
+            appointments: appointmentsResult.count ?? 0,
+            doctors: doctorsResult.count ?? 0,
+            followUps: followUpsResult.count ?? 0,
           },
-        },
-        _count: {
-          select: {
-            appointments: true,
-            doctors: true,
-            followUps: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+        };
+      })
+    );
 
     return NextResponse.json({ success: true, branches });
   } catch (error) {
@@ -57,8 +61,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const branch = await db.branch.create({
-      data: {
+    const { data: branch, error } = await supabase
+      .from("Branch")
+      .insert({
+        id: createRecordId(),
+        updatedAt: new Date().toISOString(),
         name: name.trim(),
         city: city.trim(),
         address: address.trim(),
@@ -66,8 +73,10 @@ export async function POST(request: Request) {
         workingHours: workingHours?.trim() || "10:00 ص - 10:00 م",
         mapUrl: mapUrl?.trim() || null,
         status: "ACTIVE",
-      },
-    });
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,

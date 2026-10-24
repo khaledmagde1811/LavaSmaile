@@ -1,0 +1,24 @@
+{
+  "name": "مراكز لاڤا لطب وتجميل الأسنان | Lava Smile Dental Centers",
+  "short_name": "Lava Smile",
+  "description": "مراكز لاڤا سمايل لطب وتجميل الأسنان في مصر.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0891b2",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

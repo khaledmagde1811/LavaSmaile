@@ -4,15 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Sparkles,
   Lock,
   Mail,
-  Phone,
   AlertCircle,
   ArrowRight,
   KeyRound,
-  ShieldCheck,
 } from "lucide-react";
+import Logo from "@/components/Logo";
+import { LoadingIndicator } from "@/components/BrandLoader";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,46 +41,41 @@ export default function LoginPage() {
       const targetUrl = data.redirectUrl || "/admin";
       router.push(targetUrl);
       router.refresh();
-    } catch (err: any) {
-      setErrorMessage(err.message || "حدث خطأ أثناء تسجيل الدخول");
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "حدث خطأ أثناء تسجيل الدخول"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
+    <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-slate-50 py-8 font-sans sm:px-6 sm:py-12 lg:px-8">
       
       {/* Decorative Background Orbs */}
-      <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute bottom-0 left-10 w-96 h-96 bg-teal-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute top-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-cyan-200/50 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-0 left-10 w-64 h-64 sm:w-96 sm:h-96 bg-teal-200/40 rounded-full blur-3xl pointer-events-none -z-10" />
 
       {/* Header / Logo */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-3">
-        <Link href="/" className="inline-flex items-center gap-3 group">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-6 h-6" />
-          </div>
-          <span className="text-3xl font-black tracking-tight text-slate-900">
-            LAVA <span className="text-cyan-600">SMILE</span>
-          </span>
-        </Link>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+        <Logo className="group justify-center transition-transform duration-200 hover:scale-[1.02]" />
+        <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
           تسجيل الدخول الموحد
         </h2>
-        <p className="text-xs text-slate-500 max-w-xs mx-auto">
+        <p className="break-words text-xs sm:text-sm text-slate-500 max-w-xs mx-auto">
           سجل دخولك لمتابعة ملفك الطبي وحجوزاتك، أو لإدارة العيادات والفروع
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-        <div className="bg-white py-8 px-6 sm:px-10 shadow-2xl rounded-3xl border border-slate-200/80 space-y-6">
+        <div className="bg-white py-6 px-4 sm:py-8 sm:px-10 shadow-2xl rounded-3xl border border-slate-200/80 space-y-6">
           
           {/* Error Alert */}
           {errorMessage && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2.5 text-xs font-bold animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>{errorMessage}</span>
+              <span className="break-words">{errorMessage}</span>
             </div>
           )}
 
@@ -126,7 +120,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <LoadingIndicator size="sm" className="border-white border-t-amber-300" />
                   <span>جاري تسجيل الدخول...</span>
                 </>
               ) : (

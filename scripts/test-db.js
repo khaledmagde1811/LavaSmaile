@@ -1,58 +1,44 @@
-const { PrismaClient } = require("@prisma/client");
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const tables = [
+  "Branch",
+  "User",
+  "Doctor",
+  "Patient",
+  "Service",
+  "MedicalSolution",
+  "Offer",
+  "Appointment",
+  "MedicalRecord",
+  "FollowUp",
+];
 
-const prisma = new PrismaClient();
-
-async function runUpdatedDatabaseTests() {
-  console.log("==================================================");
-  console.log("🧪 اختبار قاعدة البيانات بعد التحديثات الجديدة");
-  console.log("==================================================\n");
-
-  // 1. فحص بيانات المرضى المحدثة (أرقام الهاتف والعنوان)
-  console.log("1️⃣ فحص بيانات التواصل الكاملة للمرضى:");
-  const patients = await prisma.patient.findMany();
-  patients.forEach((p, i) => {
-    console.log(`   [مريض ${i + 1}] ${p.fullName}`);
-    console.log(`       📞 الهاتف الأساسي (واتساب): ${p.phone}`);
-    console.log(`       📱 هاتف إضافي / طوارئ: ${p.secondaryPhone || "غير مسجل"}`);
-    console.log(`       ✉️  البريد: ${p.email || "غير مسجل"}`);
-    console.log(`       📍 العنوان: ${p.address || "غير مسجل"}`);
-    console.log(`       🆔 الرقم القومي: ${p.nationalId}`);
-  });
-  console.log("");
-
-  // 2. فحص الحجوزات ونوع الملاحظة (شكوى أو اقتراح)
-  console.log("2️⃣ فحص الشكاوى والاقتراحات المرفقة بالحجوزات:");
-  const appointments = await prisma.appointment.findMany({
-    include: {
-      patient: true,
-      branch: true,
-      service: true,
-    },
-  });
-
-  appointments.forEach((apt, i) => {
-    console.log(`   [طلب حجز ${i + 1}] المريض: ${apt.patient.fullName} | الفرع: ${apt.branch.name}`);
-    console.log(`       🏷️ نوع الملاحظة: ${apt.noteType === "COMPLAINT" ? "⚠️ شكوى طبية / ألم" : "💡 اقتراح أو رغبة تطويرية"}`);
-    if (apt.patientComplaint) {
-      console.log(`       📝 نص الشكوى: "${apt.patientComplaint}"`);
-      console.log(`       🎯 موضع الألم: "${apt.painLocation}"`);
-    }
-    if (apt.patientSuggestion) {
-      console.log(`       💡 نص الاقتراح: "${apt.patientSuggestion}"`);
-    }
-    console.log(`       📊 الحالة: ${apt.status}`);
-  });
-
-  console.log("\n==================================================");
-  console.log("🎉 جميع التعديلات والحقول الجديدة تعمل وتُحفظ بكفاءة تامة!");
-  console.log("==================================================");
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Set NEXT_PUBLIC_SUPABASE_URL and a Supabase key before checking the database."
+  );
 }
 
-runUpdatedDatabaseTests()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+async function checkTables() {
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  for (const table of tables) {
+    const { count, error } = await supabase
+      .from(table)
+      .select("id", { count: "exact", head: true });
+    if (error) {
+      throw new Error(`Supabase table "${table}" check failed: ${error.message}`, {
+        cause: error,
+      });
+    }
+    console.log(`${table}: ${count ?? 0} rows`);
+  }
+}
+checkTables().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

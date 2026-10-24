@@ -1,82 +1,134 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Sparkles, Phone, Calendar, Menu, X, Shield, MapPin, LayoutDashboard, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Calendar, LayoutDashboard, LogOut, Menu, User, UserPlus, X } from "lucide-react";
+import Logo from "@/components/Logo";
+import { LoadingIndicator } from "@/components/BrandLoader";
+
+interface NavbarUser {
+  name: string;
+  role: "PATIENT" | "SUPER_ADMIN" | "BRANCH_ADMIN" | "DOCTOR" | "RECEPTIONIST";
+}
 
 export default function Navbar() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<NavbarUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const response = await fetch("/api/auth/me");
+        const result = await response.json();
+        if (response.status === 401) return;
+        if (!response.ok || !result.success || !result.user) {
+          throw new Error(result.message || "تعذر التحقق من جلسة المستخدم");
+        }
+        setCurrentUser(result.user);
+      } catch (error) {
+        console.error("Failed to load navbar session:", error);
+        setAuthError(
+          error instanceof Error ? error.message : "تعذر التحقق من الجلسة"
+        );
+      } finally {
+        setAuthChecked(true);
+      }
+    }
+    loadSession();
+  }, []);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setAuthError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "تعذر تسجيل الخروج");
+      }
+      setCurrentUser(null);
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setAuthError(error instanceof Error ? error.message : "تعذر تسجيل الخروج");
+      setLoggingOut(false);
+    }
+  }
+
+  const isPatient = currentUser?.role === "PATIENT";
+  const isStaff = Boolean(currentUser && !isPatient);
+  const authActions = authChecked ? (
+    currentUser ? (
+      <>
+        <span className="max-w-36 truncate text-xs font-bold text-slate-600">
+          {currentUser.name}
+        </span>
+        <Link
+          href={isPatient ? "/patient" : "/admin"}
+          className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-xs font-bold text-cyan-800 transition-colors hover:bg-cyan-100"
+        >
+          {isStaff ? <LayoutDashboard className="h-4 w-4" /> : <User className="h-4 w-4" />}
+          {isStaff ? "لوحة التحكم" : "حسابي / حجوزاتي وشكاواي"}
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-60"
+        >
+          <LogOut className="h-4 w-4" />
+          {loggingOut ? <><LoadingIndicator size="sm" /> جارٍ الخروج...</> : "تسجيل الخروج"}
+        </button>
+      </>
+    ) : (
+      <>
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200"
+        >
+          <User className="h-4 w-4 text-cyan-600" />
+          تسجيل الدخول
+        </Link>
+        <Link
+          href="/register"
+          className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-xs font-bold text-cyan-800 transition-colors hover:bg-cyan-100"
+        >
+          <UserPlus className="h-4 w-4" />
+          إنشاء حساب مريض
+        </Link>
+      </>
+    )
+  ) : null;
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-[#F4F7F8]/90 py-2 shadow-sm shadow-slate-900/[0.03] backdrop-blur-md">
+      <div className="mx-auto max-w-[1320px] px-4 sm:px-6">
+        <div className="flex min-h-16 items-center justify-between gap-3 rounded-full border border-[#E3EAEE] bg-white px-4 py-2 shadow-sm sm:px-6">
           
-  {/* Logo & Brand */}
-<Link href="/" className="flex items-center gap-3 group">
-  {/* Icon Box with Golden Tooth SVG */}
-  <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center shadow-md shadow-amber-500/10 group-hover:scale-105 transition-transform duration-200 border border-amber-500/20">
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 200 260" 
-      className="w-7 h-7"
-    >
-      <defs>
-        <linearGradient id="goldGradBox" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#FFEBB0"/>
-          <stop offset="50%" stopColor="#C59B27"/>
-          <stop offset="100%" stopColor="#9A7410"/>
-        </linearGradient>
-        <radialGradient id="flareGlowBox" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1"/>
-          <stop offset="50%" stopColor="#D4AF37" stopOpacity="0.4"/>
-          <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-        </radialGradient>
-      </defs>
-      
-      <path d="M 100 22 C 118 22, 134 20, 148 27 C 165 35, 178 52, 180 74 C 182 98, 172 126, 164 154 C 156 182, 150 208, 142 226 C 136 240, 126 248, 118 226 C 112 210, 108 190, 100 190 C 92 190, 88 210, 82 226 C 74 248, 64 240, 58 226 C 50 208, 44 182, 36 154 C 28 126, 18 98, 20 74 C 22 52, 35 35, 52 27 C 66 20, 82 22, 100 22 Z" fill="none" stroke="url(#goldGradBox)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M 75 25 C 88 32, 112 32, 125 25" fill="none" stroke="url(#goldGradBox)" strokeWidth="8" strokeLinecap="round"/>
-      
-      <g transform="translate(100, 88)">
-        <circle cx="0" cy="0" r="32" fill="url(#flareGlowBox)"/>
-        <path d="M -40 0 L 40 0 M 0 -40 L 0 40" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round"/>
-        <circle cx="0" cy="0" r="4" fill="#FFFFFF"/>
-      </g>
-    </svg>
-  </div>
-
-  {/* Typography */}
-  <div className="flex flex-col">
-    <span className="text-xl font-black tracking-tight text-slate-900 flex items-center gap-1.5 font-serif">
-      LAVA <span className="text-amber-600 font-sans font-bold">SMILE</span>
-    </span>
-    <span className="text-xs font-semibold text-slate-500 tracking-wider">
-      مراكز لاڤا لطب وتجميل الأسنان
-    </span>
-  </div>
-</Link>
+          <Logo className="group transition-transform duration-200 hover:scale-[1.02]" />
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-bold text-slate-600">
+          <nav className="hidden xl:flex items-center gap-5 text-sm font-bold text-slate-600">
             <Link href="/" className="hover:text-cyan-600 transition-colors">الرئيسية</Link>
-            <Link href="#branches" className="hover:text-cyan-600 transition-colors">فروعنا (3 فروع)</Link>
+            <Link href="#branches" className="hover:text-cyan-600 transition-colors">فروعنا</Link>
             <Link href="#services" className="hover:text-cyan-600 transition-colors">خدماتنا</Link>
             <Link href="#features" className="hover:text-cyan-600 transition-colors">لماذا لاڤا؟</Link>
             <Link href="#testimonials" className="hover:text-cyan-600 transition-colors">قصص النجاح</Link>
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden lg:flex items-center gap-3">
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"
-            >
-              <User className="w-4 h-4 text-cyan-600" />
-              تسجيل الدخول / حسابي
-            </Link>
+          <div className="hidden xl:flex flex-wrap items-center justify-end gap-2">
+            {authActions}
+            {authError && <span role="alert" className="max-w-40 text-xs font-bold text-rose-700">{authError}</span>}
             <Link
               href="/book"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-700 hover:to-teal-600 shadow-md shadow-cyan-500/25 transition-all hover:shadow-lg active:scale-95"
+              className="inline-flex min-h-12 items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-700 hover:to-teal-600 shadow-md shadow-cyan-500/25 transition-all hover:shadow-lg active:scale-95"
             >
               <Calendar className="w-4 h-4" />
               احجز كشفك الآن
@@ -84,7 +136,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex shrink-0 xl:hidden items-center gap-2">
             <Link
               href="/book"
               className="px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-cyan-600"
@@ -105,7 +157,7 @@ export default function Navbar() {
 
       {/* Mobile Drawer */}
       {isOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
+        <div className="xl:hidden max-h-[calc(100svh-5rem)] overflow-y-auto border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
           <Link
             href="/"
             onClick={() => setIsOpen(false)}
@@ -113,12 +165,8 @@ export default function Navbar() {
           >
             الرئيسية
           </Link>
-          <Link
-            href="#branches"
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg text-base font-bold text-slate-700 hover:bg-slate-50"
-          >
-            فروعنا (المهندسين، مدينة نصر، التجمع)
+          <Link href="#branches" onClick={() => setIsOpen(false)} className="block px-3 py-2 rounded-lg text-base font-bold text-slate-700 hover:bg-slate-50">
+            فروعنا
           </Link>
           <Link
             href="#services"
@@ -128,12 +176,51 @@ export default function Navbar() {
             خدماتنا
           </Link>
           <Link
-            href="/login"
+            href="#features"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-lg text-base font-bold text-cyan-700 bg-cyan-50"
+            className="block px-3 py-2 rounded-lg text-base font-bold text-slate-700 hover:bg-slate-50"
           >
-            تسجيل الدخول / حسابي
+            لماذا لاڤا؟
           </Link>
+          <Link
+            href="#testimonials"
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-lg text-base font-bold text-slate-700 hover:bg-slate-50"
+          >
+            قصص النجاح
+          </Link>
+          {authChecked && (currentUser ? (
+            <>
+              <div className="px-3 py-2 text-xs font-bold text-slate-500">{currentUser.name}</div>
+              <Link
+                href={isStaff ? "/admin" : "/patient"}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2 rounded-lg bg-cyan-50 px-3 py-2 text-base font-bold text-cyan-800"
+              >
+                {isStaff ? <LayoutDashboard className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                {isStaff ? "لوحة التحكم" : "حسابي / حجوزاتي وشكاواي"}
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex w-full items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-left text-base font-bold text-rose-700 disabled:opacity-60"
+              >
+                <LogOut className="h-4 w-4" />
+                {loggingOut ? <><LoadingIndicator size="sm" /> جارٍ الخروج...</> : "تسجيل الخروج"}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-base font-bold text-slate-700 hover:bg-slate-50">
+                <User className="h-4 w-4 text-cyan-600" /> تسجيل الدخول
+              </Link>
+              <Link href="/register" onClick={() => setIsOpen(false)} className="flex items-center gap-2 rounded-lg bg-cyan-50 px-3 py-2 text-base font-bold text-cyan-800">
+                <UserPlus className="h-4 w-4" /> إنشاء حساب مريض
+              </Link>
+            </>
+          ))}
+          {authError && <p role="alert" className="px-3 text-xs font-bold text-rose-700">{authError}</p>}
           <Link
             href="/book"
             onClick={() => setIsOpen(false)}

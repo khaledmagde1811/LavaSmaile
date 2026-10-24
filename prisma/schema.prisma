@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ----------------------------------------------------
@@ -39,6 +40,8 @@ model User {
   role      String   @default("RECEPTIONIST") // SUPER_ADMIN, BRANCH_ADMIN, DOCTOR, RECEPTIONIST
   branchId  String?
   branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  doctorId  String?  @unique
+  doctor    Doctor?  @relation(fields: [doctorId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -61,6 +64,7 @@ model Doctor {
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   followUps      FollowUp[]
+  user           User?
 }
 
 // ----------------------------------------------------
@@ -87,6 +91,7 @@ model Patient {
   appointments    Appointment[]
   medicalRecords  MedicalRecord[]
   followUps       FollowUp[]
+
 }
 
 // ----------------------------------------------------
@@ -98,11 +103,58 @@ model Service {
   description     String?
   category        String?       // تجميل، علاجي، جراحي
   price           Float
+  isActive        Boolean       @default(true)
   durationMinutes Int           @default(30)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   appointments    Appointment[]
+  offers          Offer[]
+}
+
+// ----------------------------------------------------
+// الحلول والخدمات الطبية المعروضة على الموقع
+// ----------------------------------------------------
+model MedicalSolution {
+  id               String   @id @default(cuid())
+  titleAr          String
+  titleEn          String?
+  slug             String   @unique
+  shortDescription String
+  content          String?
+  price            Float?
+  icon             String?
+  imageUrl         String?
+  category         String?
+  isActive         Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  appointments     Appointment[]
+}
+
+// ----------------------------------------------------
+// العروض والخصومات (Offers & Promotions)
+// ----------------------------------------------------
+model Offer {
+  id            String    @id @default(cuid())
+  title         String    // عنوان العرض
+  description   String?   // تفاصيل العرض
+  imageUrl      String?   // رابط صورة العرض
+  originalPrice Float?    // السعر قبل الخصم
+  discountPrice Float     // السعر بعد الخصم
+  startDate     DateTime? // تاريخ البداية
+  endDate       DateTime? // تاريخ النهاية
+  isActive      Boolean   @default(true)  // تفعيل/إيقاف العرض
+  showOnHome    Boolean   @default(false) // إظهار في الصفحة الرئيسية
+  displayOrder  Int       @default(0)     // ترتيب الظهور
+
+  serviceId     String?
+  service       Service?  @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 // ----------------------------------------------------
@@ -118,6 +170,14 @@ model Appointment {
   doctor            Doctor?        @relation(fields: [doctorId], references: [id], onDelete: SetNull)
   serviceId         String?
   service           Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  medicalSolutionId String?
+  medicalSolution   MedicalSolution? @relation(fields: [medicalSolutionId], references: [id], onDelete: SetNull)
+  offerId           String?         // معرف العرض وقت الحجز، محفوظ كسجل تاريخي
+  offerTitle        String?
+  offerPrice        Float?
+  bookingType       String         @default("SERVICE")
+  bookingTitle      String?
+  bookingPrice      Float?
   
   appointmentDate   DateTime       // موعد وتاريخ الحجز
   status            String         @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
@@ -133,6 +193,8 @@ model Appointment {
 
   medicalRecord     MedicalRecord?
   followUps         FollowUp[]
+
+  @@index([patientId])
 }
 
 // ----------------------------------------------------
@@ -176,4 +238,22 @@ model FollowUp {
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+model TreatmentResult {
+  id                 String    @id
+  procedure          String
+  branchName         String
+  beforeImagePath    String?
+  afterImagePath     String?
+  patientConsent     Boolean   @default(false)
+  consentReference   String
+  consentConfirmedAt DateTime?
+  consentConfirmedBy String?
+  consentRevokedAt   DateTime?
+  consentRevokedBy   String?
+  isPublished        Boolean   @default(false)
+  displayOrder       Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }

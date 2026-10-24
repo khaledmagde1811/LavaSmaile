@@ -1,30 +1,55 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import BrandLoader from "@/components/BrandLoader";
 import BookingForm from "@/components/BookingForm";
 import { Sparkles, Shield, Clock, Award, Phone } from "lucide-react";
+import { Suspense } from "react";
+import { connection } from "next/server";
 
 export const metadata = {
   title: "احجز موعدك الآن | Lava Smile Dental Centers",
   description: "احجز كشفك في مراكز لاڤا سمايل لطب وتجميل الأسنان، واختر الفرع الأنسب لك وسجل شكواك أو اقتراحك مباشرة.",
 };
 
+type BookSearchParams = Promise<{
+  branch?: string | string[];
+  offer?: string | string[];
+}>;
+
+async function BookingFormWithParams({ searchParams }: { searchParams?: BookSearchParams }) {
+  const params = searchParams ? await searchParams : {};
+  const branchId = Array.isArray(params.branch) ? params.branch[0] : params.branch;
+  const offerId = Array.isArray(params.offer) ? params.offer[0] : params.offer;
+  await connection();
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  return (
+    <BookingForm
+      preselectedBranchId={branchId}
+      preselectedOfferId={offerId}
+      initialAppointmentDate={tomorrow.toISOString().split("T")[0]}
+    />
+  );
+}
+
 export default function BookPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ branch?: string }>;
+  searchParams?: BookSearchParams;
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
+      <main id="booking" className="flex-1 px-4 py-12 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
         {/* Header */}
         <div className="text-center space-y-4 mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-100/70 text-cyan-800 text-xs font-black shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
             حجز ذكي وسريع خلال دقيقة واحدة
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
             حجز موعد جديد في <span className="text-cyan-600">لاڤا سمايل</span>
           </h1>
           <p className="text-slate-600 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
@@ -68,7 +93,9 @@ export default function BookPage({
         </div>
 
         {/* The Form */}
-        <BookingForm />
+        <Suspense fallback={<BrandLoader message="جاري تجهيز نموذج الحجز..." />}>
+          <BookingFormWithParams searchParams={searchParams} />
+        </Suspense>
       </main>
 
       <Footer />

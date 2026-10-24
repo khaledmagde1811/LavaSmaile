@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
+import type { Database } from "@/lib/database.types";
 import { getCurrentSession } from "@/lib/auth";
 
 export async function PATCH(
@@ -19,18 +20,23 @@ export async function PATCH(
     const body = await request.json();
     const { name, city, address, phone, workingHours, mapUrl, status } = body;
 
-    const updated = await db.branch.update({
-      where: { id },
-      data: {
-        ...(name && { name: name.trim() }),
-        ...(city && { city: city.trim() }),
-        ...(address && { address: address.trim() }),
-        ...(phone && { phone: phone.trim() }),
-        ...(workingHours && { workingHours: workingHours.trim() }),
-        ...(mapUrl !== undefined && { mapUrl: mapUrl ? mapUrl.trim() : null }),
-        ...(status && { status }),
-      },
-    });
+    const updates: Database["public"]["Tables"]["Branch"]["Update"] = {};
+    if (name) updates.name = name.trim();
+    if (city) updates.city = city.trim();
+    if (address) updates.address = address.trim();
+    if (phone) updates.phone = phone.trim();
+    if (workingHours) updates.workingHours = workingHours.trim();
+    if (mapUrl !== undefined) updates.mapUrl = mapUrl ? mapUrl.trim() : null;
+    if (status) updates.status = status;
+    updates.updatedAt = new Date().toISOString();
+
+    const { data: updated, error } = await supabase
+      .from("Branch")
+      .update(updates)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw error;
 
     return NextResponse.json({
       success: true,
@@ -62,9 +68,18 @@ export async function DELETE(
     const { id } = await params;
 
     // حذف الفرع
-    await db.branch.delete({
-      where: { id },
-    });
+    const { data, error } = await supabase
+      .from("Branch")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error) throw error;
+    if (!data.length) {
+      return NextResponse.json(
+        { success: false, message: "الفرع غير موجود" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

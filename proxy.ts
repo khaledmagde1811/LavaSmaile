@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-
-const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "lava_smile_super_secure_secret_key_clinic_2026_jwt"
-);
+import { jwtVerify, type JWTPayload } from "jose";
+import { getSessionSecret } from "@/lib/session-secret";
 
 const COOKIE_NAME = "lava_auth_token";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(COOKIE_NAME)?.value;
+  const secret = getSessionSecret();
 
   let isAuthenticated = false;
-  let userPayload: any = null;
+  let userPayload: (JWTPayload & { role?: string }) | null = null;
 
   if (token) {
     try {
-      const { payload } = await jwtVerify(token, SECRET_KEY);
+      const { payload } = await jwtVerify(token, secret);
       isAuthenticated = true;
       userPayload = payload;
     } catch {

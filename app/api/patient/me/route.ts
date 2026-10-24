@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { unstable_rethrow } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { getCurrentSession } from "@/lib/auth";
 
 
@@ -13,26 +14,14 @@ export async function GET() {
       );
     }
 
-    const patient = await db.patient.findUnique({
-      where: { id: session.userId },
-      include: {
-        appointments: {
-          include: {
-            branch: true,
-            service: true,
-            doctor: true,
-          },
-          orderBy: { appointmentDate: "desc" },
-        },
-        followUps: {
-          include: {
-            branch: true,
-            doctor: true,
-          },
-          orderBy: { scheduledDate: "asc" },
-        },
-      },
-    });
+    const { data: patient, error } = await supabase
+      .from("Patient")
+      .select("id, fullName, phone, secondaryPhone, email, address, nationalId, birthDate, gender, chronicDiseases, allergies, notes, createdAt, updatedAt, appointments:Appointment(*, branch:Branch(*), service:Service(*), medicalSolution:MedicalSolution(*), doctor:Doctor(*)), followUps:FollowUp(*, branch:Branch(*), doctor:Doctor(*))")
+      .eq("id", session.userId)
+      .order("appointmentDate", { referencedTable: "Appointment", ascending: false })
+      .order("scheduledDate", { referencedTable: "FollowUp", ascending: true })
+      .maybeSingle();
+    if (error) throw error;
 
     if (!patient) {
       return NextResponse.json(
@@ -41,8 +30,16 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ success: true, patient });
+    const { data: medicalRecords, error: medicalRecordsError } = await supabase
+      .from("MedicalRecord")
+      .select("id, appointmentId, diagnosis, treatmentPerformed, createdAt, doctor:Doctor(name), appointment:Appointment(id, appointmentDate, branch:Branch(name))")
+      .eq("patientId", session.userId)
+      .order("createdAt", { ascending: false });
+    if (medicalRecordsError) throw medicalRecordsError;
+
+    return NextResponse.json({ success: true, patient: { ...patient, medicalRecords } });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Patient profile error:", error);
     return NextResponse.json(
       { success: false, message: "فشل تحميل بيانات المريض" },
